@@ -1,0 +1,9 @@
+streamlit
+pandas
+scikit-learn
+nltk
+numpy
+google-generativeai
+flask
+flask-cors
+gunicorn
