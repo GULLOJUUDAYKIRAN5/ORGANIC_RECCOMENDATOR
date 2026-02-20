@@ -86,3 +86,109 @@
 
 @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 .animate-slide-up { animation: slideUp 0.5s ease-out; }
+
+/* Crop Card Grid */
+.crop-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 15px 0 25px 0;
+}
+.organic-text {
+  color: #2e7d32; /* Rich agricultural green */
+  font-weight: 700;
+}
+
+
+/* Bold headings from Gemini */
+.advice-text strong {
+    font-weight: bold;
+    color: #2d6a4f; /* Green for your theme */
+    display: block;
+    margin-top: 10px;
+}
+
+/* Bullet points from Gemini */
+.advice-text ul {
+    padding-left: 20px;
+    list-style-type: disc;
+    margin-top: 5px;
+}
+
+.advice-text li {
+    margin-bottom: 5px;
+}
+/* Optional: If you want a slight glow or extra emphasis */
+.organic-text {
+  text-shadow: 0 0 10px rgba(46, 125, 50, 0.1);
+}
+
+.section-label {
+  display: block;
+  font-size: 1rem;
+  font-weight: 1000;
+  color: #2e7d32;
+  margin-bottom: 8px;
+  text-align: left;
+}
+
+/* Individual Crop Card */
+.crop-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.5);
+  border: 2px solid rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.crop-card:hover {
+  background: white;
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+}
+
+/* Selected State */
+.crop-card.active {
+  background: #f1f8e9;
+  border-color: #4caf50;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+.crop-icon-img {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 6px;
+  object-fit: contain;
+}
+
+.crop-name-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Green checkmark badge */
+.selection-check {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  color: #2e7d32;
+  background: white;
+  border-radius: 50%;
+  padding: 1px;
+}
+
+/* Responsive Grid */
+@media (max-width: 600px) {
+  .crop-cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
