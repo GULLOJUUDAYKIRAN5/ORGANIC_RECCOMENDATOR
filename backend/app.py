@@ -24,7 +24,8 @@ def load_models():
 tfidf, vectors, data = load_models()
 
 app = Flask(__name__)
-CORS(app)
+
+CORS(app, resources={r"/*": {"origins": ["http://localhost:3000","https://OrganicBuddy.in", "https://organic-reccomendator-k2c8.vercel.app"]}})
 
 
 load_dotenv()
