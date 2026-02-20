@@ -53,31 +53,31 @@ def recommend():
 
     similarity = cosine_similarity(query_vec, vectors)
     best_idx = similarity.argmax()
-    res = data.iloc[best_idx]
+    best_score = similarity.max()
 
+    if best_score <= 0.5:
+        return jsonify({
+            "status": "error",
+            "message": f"I couldn't find a reliable match for '{chemical}' on '{crop}'. Please check your spelling."
+        }), 400
     
+    res = data.iloc[best_idx]
     prompt = f"""
-    You are an experienced agricultural scientist advising a farmer.
+        Act as a friendly agricultural expert.
+        A farmer uses {chemical} on {crop} for {res['problem_or_pest']}.
+        The organic alternative is {res['organic_alternative']}.
 
-    The farmer is currently using {chemical} on {crop}.
-    The target problem is {res['problem_or_pest']}.
+        Provide the response ONLY in bullet points using '-' followed by a space.
+        DO NOT use bold (**) or headers. 
+        DO NOT use introductory sentences.
 
-    Give a SHORT answer. 
-    Format strictly like this:
-
-    First, clearly explain WHY switching to {res['organic_alternative']} is better.
-    Give 2 simple bullet points.
-
-    Then, clearly explain HOW to use {res['organic_alternative']} properly for {acres} acres.
-    Give 2 simple bullet points.
-    Mention that it should be applied during {res['application_time']}.
-    Give 2 simple bullet points.
-
-
-    Use very simple language that a rural farmer can easily understand.
-    Be practical and confident.
-    """
-
+        - Explain why {res['organic_alternative']} is better for soil.
+        - Explain why it is cheaper for the farmer.
+        - Step 1: How to apply it for {acres} acres.
+        - Step 2: Remind them to apply during {res['application_time']}.
+        """
+    
+    print(round(float(similarity[0][best_idx]), 4))
     try:
         llm_response = llm_model.generate_content(prompt)
         llm_text = llm_response.text
@@ -85,15 +85,15 @@ def recommend():
         llm_text = f"Gemini Error: {str(e)}"
 
     return jsonify({
+        "status": "success",
         "alternative": res['organic_alternative'],
         "dosage": res['dosage'],
         "application_time": res['application_time'],
         "safety_note": res['safety_note'],
-        "llm_advice": llm_text
-        # "confidence": round(float(similarity[0][best_idx]), 4)
+        "llm_advice": llm_text,
+        "confidence": round(float(similarity[0][best_idx]), 4)
     })
     
-
 
 
 if __name__ == "__main__":
