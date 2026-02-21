@@ -6,7 +6,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import google.generativeai as genai
 from sklearn.metrics.pairwise import cosine_similarity
-
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 def load_models():
     with open('model.pkl', 'rb') as f:
@@ -25,6 +26,8 @@ tfidf, vectors, data = load_models()
 
 app = Flask(__name__)
 
+
+
 CORS(app, resources={r"/*": {"origins": ["http://localhost:3000","https://OrganicBuddy.in", "https://organic-reccomendator-k2c8.vercel.app"]}})
 
 
@@ -36,11 +39,13 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-
 llm_model = genai.GenerativeModel('gemini-3-flash-preview')
 
+limiter = Limiter(app, key_func=get_remote_address)
 
 @app.route('/recommend', methods=['POST'])
+@limiter.limit("5 per minute")
+
 def recommend():
 
     req = request.get_json()
@@ -56,7 +61,7 @@ def recommend():
     best_idx = similarity.argmax()
     best_score = similarity.max()
 
-    if best_score <= 0.5:
+    if best_score <= 0.4:
         return jsonify({
             "status": "error",
             "message": f"I couldn't find a reliable match for '{chemical}' on '{crop}'. Please check your spelling."
@@ -67,15 +72,16 @@ def recommend():
         Act as a friendly agricultural expert.
         A farmer uses {chemical} on {crop} for {res['problem_or_pest']}.
         The organic alternative is {res['organic_alternative']}.
+        
+        - Explain why it is cheaper for the farmer.
+        - Step 1: How to apply it for {acres} acres.
+        - Step 2: Remind them to apply during {res['application_time']}.
+        
+        - Explain why {res['organic_alternative']} is better for soil.
 
         Provide the response ONLY in bullet points using '-' followed by a space.
         DO NOT use bold (**) or headers. 
         DO NOT use introductory sentences.
-
-        - Explain why {res['organic_alternative']} is better for soil.
-        - Explain why it is cheaper for the farmer.
-        - Step 1: How to apply it for {acres} acres.
-        - Step 2: Remind them to apply during {res['application_time']}.
         """
     
     print(round(float(similarity[0][best_idx]), 4))
