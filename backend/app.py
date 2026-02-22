@@ -1,6 +1,5 @@
 import os
 import pickle
-import re
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS
@@ -9,24 +8,18 @@ from sklearn.metrics.pairwise import cosine_similarity
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-def load_models():
-    with open('model.pkl', 'rb') as f:
-        tfidf = pickle.load(f)
 
-    with open('vectors.pkl', 'rb') as f:
-        vectors = pickle.load(f)
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
 
-    with open('data.pkl', 'rb') as f:
-        data = pickle.load(f)
+if not api_key:
+    raise ValueError("GEMINI_API_KEY not found in environment variables")
 
-    return tfidf, vectors, data
+genai.configure(api_key=api_key)
+llm_model = genai.GenerativeModel("gemini-3-flash-preview")
 
-
-tfidf, vectors, data = load_models()
 
 app = Flask(__name__)
-
-
 
 CORS(app, resources={
     r"/*": {
@@ -37,15 +30,6 @@ CORS(app, resources={
         ]
     }
 })
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
-
-if not api_key:
-    raise ValueError("GEMINI_API_KEY not found in .env")
-
-genai.configure(api_key=api_key)
-
-llm_model = genai.GenerativeModel('gemini-3-flash-preview')
 
 limiter = Limiter(
     key_func=get_remote_address,
@@ -53,65 +37,101 @@ limiter = Limiter(
     default_limits=["10 per minute"]
 )
 
-@app.route('/recommend', methods=['POST'])
+
+tfidf = None
+vectors = None
+data = None
+
+def load_models():
+    with open("model.pkl", "rb") as f:
+        tfidf_model = pickle.load(f)
+
+    with open("vectors.pkl", "rb") as f:
+        vector_data = pickle.load(f)
+
+    with open("data.pkl", "rb") as f:
+        dataframe = pickle.load(f)
+
+    return tfidf_model, vector_data, dataframe
+
+
+def get_models():
+    global tfidf, vectors, data
+    if tfidf is None:
+        tfidf, vectors, data = load_models()
+    return tfidf, vectors, data
+
+
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({"status": "Backend Running"})
+
+
+@app.route("/recommend", methods=["POST"])
 @limiter.limit("5 per minute")
-
 def recommend():
+    try:
+        req = request.get_json()
 
-    req = request.get_json()
+        chemical = req.get("chemical")
+        crop = req.get("crop")
+        acres = req.get("acres")
 
-    chemical = req['chemical']
-    crop = req['crop']
-    acres = req['acres']
+        if not chemical or not crop or not acres:
+            return jsonify({
+                "status": "error",
+                "message": "Missing required fields."
+            }), 400
 
-    query = f"{chemical} {crop}".lower()
-    query_vec = tfidf.transform([query])
+        tfidf_model, vector_data, dataframe = get_models()
 
-    similarity = cosine_similarity(query_vec, vectors)
-    best_idx = similarity.argmax()
-    best_score = similarity.max()
+        query = f"{chemical} {crop}".lower()
+        query_vec = tfidf_model.transform([query])
 
-    if best_score <= 0.4:
-        return jsonify({
-            "status": "error",
-            "message": f"I couldn't find a reliable match for '{chemical}' on '{crop}'. Please check your spelling."
-        }), 400
-    
-    res = data.iloc[best_idx]
-    prompt = f"""
+        similarity = cosine_similarity(query_vec, vector_data)
+        best_idx = similarity.argmax()
+        best_score = similarity.max()
+
+        if best_score <= 0.4:
+            return jsonify({
+                "status": "error",
+                "message": f"No reliable match found for '{chemical}' on '{crop}'."
+            }), 400
+
+        res = dataframe.iloc[best_idx]
+
+        prompt = f"""
         Act as a friendly agricultural expert.
         A farmer uses {chemical} on {crop} for {res['problem_or_pest']}.
         The organic alternative is {res['organic_alternative']}.
-        
+
         - Explain why it is cheaper for the farmer.
         - Step 1: How to apply it for {acres} acres.
         - Step 2: Remind them to apply during {res['application_time']}.
-        
         - Explain why {res['organic_alternative']} is better for soil.
 
         Provide the response ONLY in bullet points using '-' followed by a space.
-        DO NOT use bold (**) or headers. 
-        DO NOT use introductory sentences.
+        Do not use bold or headers.
         """
-    
-    print(round(float(similarity[0][best_idx]), 4))
-    try:
-        llm_response = llm_model.generate_content(prompt)
-        llm_text = llm_response.text
+
+        try:
+            llm_response = llm_model.generate_content(prompt)
+            llm_text = llm_response.text
+        except Exception as e:
+            llm_text = f"Gemini Error: {str(e)}"
+
+        return jsonify({
+            "status": "success",
+            "alternative": res["organic_alternative"],
+            "dosage": res["dosage"],
+            "application_time": res["application_time"],
+            "safety_note": res["safety_note"],
+            "llm_advice": llm_text,
+            "confidence": round(float(best_score), 4)
+        })
+
     except Exception as e:
-        llm_text = f"Gemini Error: {str(e)}"
-
-    return jsonify({
-        "status": "success",
-        "alternative": res['organic_alternative'],
-        "dosage": res['dosage'],
-        "application_time": res['application_time'],
-        "safety_note": res['safety_note'],
-        "llm_advice": llm_text,
-        "confidence": round(float(similarity[0][best_idx]), 4)
-    })
-    
-
-
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=10000)
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
