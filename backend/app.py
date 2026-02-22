@@ -9,10 +9,11 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 
-api_key = os.environ.get("GEMINI_API_KEY")
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
-    raise ValueError("GEMINI_API_KEY not set in environment variables")
+    raise ValueError("GEMINI_API_KEY not found in environment variables")
 
 genai.configure(api_key=api_key)
 llm_model = genai.GenerativeModel("gemini-3-flash-preview")
@@ -134,4 +135,3 @@ def recommend():
             "status": "error",
             "message": str(e)
         }), 500
-
