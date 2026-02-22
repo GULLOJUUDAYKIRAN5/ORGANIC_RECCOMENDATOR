@@ -28,9 +28,15 @@ app = Flask(__name__)
 
 
 
-CORS(app, resources={r"/*": {"origins": ["http://localhost:3000","https://OrganicBuddy.in", "https://organic-reccomendator-k2c8.vercel.app"]}})
-
-
+CORS(app, resources={
+    r"/*": {
+        "origins": [
+            "https://organicbuddy.me",
+            "https://www.organicbuddy.me",
+            "https://organic-reccomendator-k2c8.vercel.app"
+        ]
+    }
+})
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
@@ -41,7 +47,11 @@ genai.configure(api_key=api_key)
 
 llm_model = genai.GenerativeModel('gemini-3-flash-preview')
 
-limiter = Limiter(app, key_func=get_remote_address)
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=["10 per minute"]
+)
 
 @app.route('/recommend', methods=['POST'])
 @limiter.limit("5 per minute")
